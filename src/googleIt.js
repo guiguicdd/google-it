@@ -1,11 +1,11 @@
 /* eslint-disable no-console */
 /* eslint-disable array-callback-return */
-const request = require('request');
-const fs = require('fs');
-const querystring = require('querystring');
-const cheerio = require('cheerio');
-require('colors');
-const { exec } = require('child_process');
+const axios = require("axios");
+const fs = require("fs");
+const querystring = require("querystring");
+const cheerio = require("cheerio");
+require("colors");
+const { exec } = require("child_process");
 
 const {
   getDefaultRequestOptions,
@@ -18,7 +18,7 @@ const {
   saveToFile,
   saveResponse,
   titlefinder,
-} = require('./utils');
+} = require("./utils");
 
 export function errorTryingToOpen(error, stdout, stderr) {
   if (error) {
@@ -49,11 +49,13 @@ export function getSnippet(elem) {
   // Issue with linter wanting "new" before "Array"
   // in this case, the casting is legit, we don't want a new array
   // eslint-disable-next-line unicorn/new-for-builtins
-  return elem.children && elem.children.length > 0 ? elem.children.map((child) => Array(findData(child)).join('')).join('') : '';
+  return elem.children && elem.children.length > 0
+    ? elem.children.map((child) => Array(findData(child)).join("")).join("")
+    : "";
 }
 
 export function display(results, disableConsole, onlyUrls) {
-  logIt('\n', disableConsole);
+  logIt("\n", disableConsole);
   results.forEach((result) => {
     if (onlyUrls) {
       logIt(result.link.green, disableConsole);
@@ -61,9 +63,9 @@ export function display(results, disableConsole, onlyUrls) {
       logIt(result.title.blue, disableConsole);
       logIt(result.link.green, disableConsole);
       logIt(result.snippet, disableConsole);
-      logIt('\n', disableConsole);
+      logIt("\n", disableConsole);
     } else {
-      logIt('Result title is undefined.');
+      logIt("Result title is undefined.");
     }
   });
 }
@@ -72,7 +74,7 @@ export const parseGoogleSearchResultUrl = (url) => {
   if (!url) {
     return undefined;
   }
-  if (url.charAt(0) === '/') {
+  if (url.charAt(0) === "/") {
     return querystring.parse(url).url;
   }
   return url;
@@ -124,11 +126,17 @@ export function getResults({
     display(results, disableConsole, onlyUrls);
   }
 
-  const resultStats = $(getResultStatsSelector(resultStatsSelector)).html() || '';
-  const approximateResults = ((resultStats.split(' results') || [''])[0].split('About ')[1] || '').replace(',', '');
-  const seconds = parseFloat((resultStats.split(' (')[1] || '').split(' seconds')[0]);
-  const cursor = $(getResultCursorSelector(cursorSelector)).html() || '';
-  const page = parseInt(cursor.split('</span>')[1], 10);
+  const resultStats =
+    $(getResultStatsSelector(resultStatsSelector)).html() || "";
+  const approximateResults = (
+    (resultStats.split(" results") || [""])[0].split("About ")[1] || ""
+  ).replace(",", "");
+  const seconds = parseFloat(
+    (resultStats.split(" (")[1] || "").split(" seconds")[0]
+  );
+  const cursor = $(getResultCursorSelector(cursorSelector)).html() || "";
+  const page = parseInt(cursor.split("</span>")[1], 10);
+
   const stats = {
     page,
     approximateResults,
@@ -154,7 +162,9 @@ export function getResponse({
     if (filePath) {
       fs.readFile(filePath, (err, data) => {
         if (err) {
-          return reject(new Error(`Erorr accessing file at ${filePath}: ${err}`));
+          return reject(
+            new Error(`Erorr accessing file at ${filePath}: ${err}`)
+          );
         }
         return resolve({ body: data });
       });
@@ -162,9 +172,14 @@ export function getResponse({
       return resolve({ body: fromString });
     }
     const defaultOptions = getDefaultRequestOptions({
-      limit, query, userAgent, start, includeSites, excludeSites,
+      limit,
+      query,
+      userAgent,
+      start,
+      includeSites,
+      excludeSites,
     });
-    request({ ...defaultOptions, ...options }, (error, response, body) => {
+    axios({ ...defaultOptions, ...options }, (error, response, body) => {
       if (error) {
         return reject(new Error(`Error making web request: ${error}`));
       }
@@ -188,32 +203,41 @@ function googleIt(config) {
     diagnostics,
   } = config;
   return new Promise((resolve, reject) => {
-    getResponse(config).then(({ body, response }) => {
-      const { results, stats } = getResults({
-        data: body,
-        noDisplay: config['no-display'],
-        disableConsole: config.disableConsole,
-        onlyUrls: config['only-urls'],
-        titleSelector,
-        linkSelector,
-        snippetSelector,
-        resultStatsSelector,
-        cursorSelector,
-        start,
-      });
-      const { statusCode } = response;
-      if (results.length === 0 && statusCode !== 200 && !diagnostics) {
-        reject(new Error(`Error in response: statusCode ${statusCode}. To see the raw response object, please include the 'diagnostics: true' as part of the options object (or -d if using command line)`));
-      }
-      saveToFile(output, results);
-      openInBrowser(open, results);
-      if (returnHtmlBody || diagnostics) {
-        return resolve({
-          results, body, response, stats,
+    getResponse(config)
+      .then(({ body, response }) => {
+        const { results, stats } = getResults({
+          data: body,
+          noDisplay: config["no-display"],
+          disableConsole: config.disableConsole,
+          onlyUrls: config["only-urls"],
+          titleSelector,
+          linkSelector,
+          snippetSelector,
+          resultStatsSelector,
+          cursorSelector,
+          start,
         });
-      }
-      return resolve(results);
-    }).catch(reject);
+        const { statusCode } = response;
+        if (results.length === 0 && statusCode !== 200 && !diagnostics) {
+          reject(
+            new Error(
+              `Error in response: statusCode ${statusCode}. To see the raw response object, please include the 'diagnostics: true' as part of the options object (or -d if using command line)`
+            )
+          );
+        }
+        saveToFile(output, results);
+        openInBrowser(open, results);
+        if (returnHtmlBody || diagnostics) {
+          return resolve({
+            results,
+            body,
+            response,
+            stats,
+          });
+        }
+        return resolve(results);
+      })
+      .catch(reject);
   });
 }
 
